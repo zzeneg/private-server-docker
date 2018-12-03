@@ -1,0 +1,99 @@
+version: '3.4'
+
+volumes:
+  gyazo-data:
+  openvpn-data:
+  mtproxy-data:
+  ghost-data:
+  photo-gallery-data:
+
+
+services:
+
+  nginx:
+    container_name: nginx
+    image: nginx:alpine
+    volumes:
+      - gyazo-data:/gyazo:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - 80:80
+    restart: always
+
+  node-gyazo-upload:
+    container_name: gyazo
+    build:
+      context: .
+      dockerfile: Dockerfile-gyazo
+      args:
+        FILE_FOLDER: /data/uploads
+        IMAGE_FOLDER: /data/uploads/i
+    volumes:
+      - gyazo-data:/data
+    ports:
+      - 81:80
+    restart: always
+    environment:
+      HOST: mydomain.com
+      PORT: 80
+      URL: /upload
+      WEB_SERVER_FOLDER: /data
+      FILE_FOLDER: /uploads
+      IMAGE_FOLDER: /uploads/i
+      TOKEN: mytoken
+
+  openvpn:
+    container_name: openvpn
+    cap_add:
+      - NET_ADMIN
+    image: kylemanna/openvpn
+    ports:
+      - 1194:1194/udp
+    restart: always
+    volumes:
+      - openvpn-data:/etc/openvpn
+
+  openvpn-tcp:
+    container_name: openvpn-tcp
+    cap_add:
+      - NET_ADMIN
+    image: kylemanna/openvpn
+    ports:
+      - 443:1194/tcp
+    restart: always
+    volumes:
+      - openvpn-data:/etc/openvpn:ro
+    command: ovpn_run --proto tcp
+
+  dante:
+    container_name: dante
+    build:
+      context: .
+      dockerfile: Dockerfile-dante
+      args:
+        DANTE_USER: myuser
+        DANTE_PASSWORD: mypassword
+    ports:
+      - 1080:1080
+    restart: always
+    volumes:
+      - ./sockd.conf:/etc/sockd.conf:ro
+
+  # mtproxy:
+  #   image: telegrammessenger/proxy
+  #   ports:
+  #     - 82:443
+  #   restart: always
+  #   volumes:
+  #     - mtproxy-data:/data
+
+  # ghost:
+  #   container_name: ghost
+  #   image: ghost:alpine
+  #   ports:
+  #     - 2368:2368
+  #   restart: always
+  #   volumes:
+  #     - ghost-data:/var/lib/ghost/content
+  #   environment:
+  #     URL: http://mydomain.com

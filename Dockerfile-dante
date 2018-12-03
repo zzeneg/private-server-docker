@@ -1,0 +1,19 @@
+FROM alpine:edge
+
+ARG DANTE_USER
+ARG DANTE_PASSWORD
+
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/repositories && \
+    apk add --no-cache dante-server
+
+RUN adduser -D $DANTE_USER
+RUN echo "$DANTE_USER:$DANTE_PASSWORD" | chpasswd
+
+EXPOSE 1080
+
+ENV CFGFILE /etc/sockd.conf
+ENV PIDFILE /tmp/sockd.pid
+ENV WORKERS 10
+
+CMD sockd -f $CFGFILE -p $PIDFILE -N $WORKERS
+
