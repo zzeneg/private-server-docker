@@ -1,0 +1,33 @@
+FROM alpine:latest as builder
+
+RUN apk add --no-cache git gcc pcre-dev musl-dev make libconfig-dev
+
+WORKDIR /sslh
+
+ADD https://api.github.com/repos/yrutschle/sslh/git/refs/heads/master /version.json
+RUN git clone https://github.com/yrutschle/sslh.git ./ && make sslh
+
+
+
+FROM alpine:latest
+
+RUN apk add --no-cache pcre openssl libconfig
+
+COPY --from=builder /sslh/sslh-fork /bin/sslh
+
+ENV LISTEN_IP=0.0.0.0 \
+    LISTEN_PORT=443 \
+    SSH_HOST=localhost \
+    SSH_PORT=22 \
+    HTTPS_HOST=localhost \
+    HTTPS_PORT=4433 \
+    OPENVPN_HOST=localhost \
+    OPENVPN_PORT=1194 \
+    SOCKS5_HOST=localhost \
+    SOCKS5_PORT=8080 \
+    ANYPROT_HOST=localhost \
+    ANYPROT_PORT=8888 
+
+EXPOSE $LISTEN_PORT
+
+CMD sslh -f -u root --listen $LISTEN_IP:$LISTEN_PORT --ssh $SSH_HOST:$SSH_PORT --tls $HTTPS_HOST:$HTTPS_PORT --socks5 $SOCKS5_HOST:$SOCKS5_PORT --openvpn $OPENVPN_HOST:$OPENVPN_PORT --anyprot $ANYPROT_HOST:$ANYPROT_PORT

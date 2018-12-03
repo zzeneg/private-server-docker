@@ -8,6 +8,16 @@ RUN apk add --no-cache git && \
 
 RUN npm i pm2 -g
 
-EXPOSE 80
+ENV HOST=localhost \
+    PORT=80 \
+    URL=/ \
+    TOKEN=qwerty123! \
+    WEB_SERVER_FOLDER=/data \
+    FILE_FOLDER=/ \
+    IMAGE_FOLDER=/i
+
+VOLUME $WEB_SERVER_FOLDER
+
+EXPOSE $PORT
 
 CMD mkdir -p $WEB_SERVER_FOLDER/$FILE_FOLDER && mkdir -p $WEB_SERVER_FOLDER/$IMAGE_FOLDER && pm2-runtime server.js

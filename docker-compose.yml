@@ -7,8 +7,19 @@ volumes:
   nginx-proxy-html:
   nginx-proxy-dhparam:
   nginx-proxy-certs:
+  # mtproxy-data:
 
 services:
+
+  # sslh:
+  #   container_name: sslh
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile-sslh
+  #   network_mode: "host"
+  #   ports:
+  #     - 443:443
+  #   restart: always
 
   nginx-proxy:
     container_name: nginx-proxy
@@ -71,11 +82,6 @@ services:
       - gyazo-data:/data
     environment:
       HOST: https://gyazo.mydomain.com
-      PORT: 80
-      URL: /
-      WEB_SERVER_FOLDER: /data
-      FILE_FOLDER: /
-      IMAGE_FOLDER: /i
       TOKEN: mytoken
       VIRTUAL_HOST: upload.mydomain.com
       LETSENCRYPT_HOST: upload.mydomain.com
@@ -101,7 +107,7 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-      - 1194:1194/udp
+      - 443:1194/udp
     restart: always
     volumes:
       - openvpn-data:/etc/openvpn
@@ -133,9 +139,10 @@ services:
       - ./sockd.conf:/etc/sockd.conf:ro
 
   # mtproxy:
+  #   container_name: mtproxy
   #   image: telegrammessenger/proxy
   #   ports:
-  #     - 82:443
+  #     - 8888:443
   #   restart: always
   #   volumes:
   #     - mtproxy-data:/data
