@@ -1,0 +1,13 @@
+FROM node:alpine
+
+WORKDIR /gyazo
+ADD https://api.github.com/repos/zzeneg/node-gyazo-upload/git/refs/heads/master /version.json
+RUN apk add --no-cache git && \
+    git clone https://github.com/zzeneg/node-gyazo-upload.git ./ && \
+    npm i
+
+RUN npm i pm2 -g
+
+EXPOSE 80
+
+CMD mkdir -p $WEB_SERVER_FOLDER/$FILE_FOLDER && mkdir -p $WEB_SERVER_FOLDER/$IMAGE_FOLDER && pm2-runtime server.js

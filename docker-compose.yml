@@ -3,50 +3,103 @@ version: '3.4'
 volumes:
   gyazo-data:
   openvpn-data:
-  mtproxy-data:
-  ghost-data:
-  photo-gallery-data:
-
+  nginx-proxy-vhost:
+  nginx-proxy-html:
+  nginx-proxy-dhparam:
+  nginx-proxy-certs:
 
 services:
 
-  nginx:
-    container_name: nginx
-    image: nginx:alpine
-    volumes:
-      - gyazo-data:/gyazo:ro
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  nginx-proxy:
+    container_name: nginx-proxy
+    image: jwilder/nginx-proxy:alpine
     ports:
       - 80:80
+      - 4433:443
     restart: always
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - nginx-proxy-vhost:/etc/nginx/vhost.d
+      - nginx-proxy-html:/usr/share/nginx/html
+      - nginx-proxy-dhparam:/etc/nginx/dhparam
+      - nginx-proxy-certs:/etc/nginx/certs:ro
 
-  node-gyazo-upload:
+  letsencrypt-nginx-proxy-companion:
+    container_name: letsencrypt-nginx-proxy-companion
+    image: jrcs/letsencrypt-nginx-proxy-companion:stable
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - nginx-proxy-vhost:/etc/nginx/vhost.d
+      - nginx-proxy-html:/usr/share/nginx/html
+      - nginx-proxy-certs:/etc/nginx/certs
+    environment:
+      NGINX_PROXY_CONTAINER: nginx-proxy
+
+  www:
+    container_name: www
+    image: nginx:alpine
+    restart: always
+    volumes:
+      - ./www:/www:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
+    environment:
+      VIRTUAL_HOST: mydomain.com
+      LETSENCRYPT_HOST: mydomain.com
+      LETSENCRYPT_EMAIL: myemail@gmail.com
+
+  gyazo:
     container_name: gyazo
+    image: nginx:alpine
+    restart: always
+    volumes:
+      - gyazo-data:/www:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    environment:
+      VIRTUAL_HOST: gyazo.mydomain.com
+      LETSENCRYPT_HOST: gyazo.mydomain.com
+      LETSENCRYPT_EMAIL: myemail@gmail.com
+
+  upload:
+    container_name: upload
     build:
       context: .
-      dockerfile: Dockerfile-gyazo
-      args:
-        FILE_FOLDER: /data/uploads
-        IMAGE_FOLDER: /data/uploads/i
+      dockerfile: Dockerfile-upload
+    restart: always
     volumes:
       - gyazo-data:/data
-    ports:
-      - 81:80
-    restart: always
     environment:
-      HOST: mydomain.com
+      HOST: https://gyazo.mydomain.com
       PORT: 80
-      URL: /upload
+      URL: /
       WEB_SERVER_FOLDER: /data
-      FILE_FOLDER: /uploads
-      IMAGE_FOLDER: /uploads/i
+      FILE_FOLDER: /
+      IMAGE_FOLDER: /i
       TOKEN: mytoken
+      VIRTUAL_HOST: upload.mydomain.com
+      LETSENCRYPT_HOST: upload.mydomain.com
+      LETSENCRYPT_EMAIL: myemail@gmail.com
+
+  telegram:
+    container_name: telegram
+    build:
+      context: .
+      dockerfile: Dockerfile-telegram
+    restart: always
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-telegram.conf:/etc/nginx/nginx-telegram.conf:ro
+    environment:
+      VIRTUAL_HOST: telegram.mydomain.com
+      LETSENCRYPT_HOST: telegram.mydomain.com
+      LETSENCRYPT_EMAIL: myemail@gmail.com
 
   openvpn:
     container_name: openvpn
+    image: kylemanna/openvpn:latest
     cap_add:
       - NET_ADMIN
-    image: kylemanna/openvpn
     ports:
       - 1194:1194/udp
     restart: always
@@ -55,15 +108,15 @@ services:
 
   openvpn-tcp:
     container_name: openvpn-tcp
+    image: kylemanna/openvpn:latest
     cap_add:
       - NET_ADMIN
-    image: kylemanna/openvpn
     ports:
       - 443:1194/tcp
     restart: always
     volumes:
       - openvpn-data:/etc/openvpn:ro
-    command: ovpn_run --proto tcp
+    command: ovpn_run --proto tcp --port-share mydomain.com 4433
 
   dante:
     container_name: dante
@@ -74,7 +127,7 @@ services:
         DANTE_USER: myuser
         DANTE_PASSWORD: mypassword
     ports:
-      - 1080:1080
+      - 8080:1080
     restart: always
     volumes:
       - ./sockd.conf:/etc/sockd.conf:ro
@@ -86,14 +139,3 @@ services:
   #   restart: always
   #   volumes:
   #     - mtproxy-data:/data
-
-  # ghost:
-  #   container_name: ghost
-  #   image: ghost:alpine
-  #   ports:
-  #     - 2368:2368
-  #   restart: always
-  #   volumes:
-  #     - ghost-data:/var/lib/ghost/content
-  #   environment:
-  #     URL: http://mydomain.com
