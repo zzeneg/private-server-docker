@@ -7,19 +7,8 @@ volumes:
   nginx-proxy-html:
   nginx-proxy-dhparam:
   nginx-proxy-certs:
-  # mtproxy-data:
 
 services:
-
-  # sslh:
-  #   container_name: sslh
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile-sslh
-  #   network_mode: "host"
-  #   ports:
-  #     - 443:443
-  #   restart: always
 
   nginx-proxy:
     container_name: nginx-proxy
@@ -137,12 +126,3 @@ services:
     restart: always
     volumes:
       - ./sockd.conf:/etc/sockd.conf:ro
-
-  # mtproxy:
-  #   container_name: mtproxy
-  #   image: telegrammessenger/proxy
-  #   ports:
-  #     - 8888:443
-  #   restart: always
-  #   volumes:
-  #     - mtproxy-data:/data
