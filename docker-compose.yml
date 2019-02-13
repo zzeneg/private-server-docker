@@ -46,9 +46,9 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
     environment:
-      VIRTUAL_HOST: mydomain.com
-      LETSENCRYPT_HOST: mydomain.com
-      LETSENCRYPT_EMAIL: myemail@gmail.com
+      VIRTUAL_HOST: ${HOST}
+      LETSENCRYPT_HOST: ${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
 
   gyazo:
     container_name: gyazo
@@ -59,9 +59,9 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
     environment:
-      VIRTUAL_HOST: gyazo.mydomain.com
-      LETSENCRYPT_HOST: gyazo.mydomain.com
-      LETSENCRYPT_EMAIL: myemail@gmail.com
+      VIRTUAL_HOST: gyazo.${HOST}
+      LETSENCRYPT_HOST: gyazo.${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
 
   upload:
     container_name: upload
@@ -72,11 +72,11 @@ services:
     volumes:
       - gyazo-data:/data
     environment:
-      HOST: https://gyazo.mydomain.com
-      TOKEN: mytoken
-      VIRTUAL_HOST: upload.mydomain.com
-      LETSENCRYPT_HOST: upload.mydomain.com
-      LETSENCRYPT_EMAIL: myemail@gmail.com
+      HOST: https://gyazo.${HOST}
+      TOKEN: ${UPLOAD_TOKEN}
+      VIRTUAL_HOST: upload.${HOST}
+      LETSENCRYPT_HOST: upload.${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
 
   telegram:
     container_name: telegram
@@ -84,18 +84,18 @@ services:
       context: .
       dockerfile: Dockerfile-telegram
       args:
-        HOST: telegram.mydomain.com
-        APP_ID: 11111
-        APP_HASH: 1234567890
+        HOST: telegram.${HOST}
+        APP_ID: ${TELEGRAM_APP_ID}
+        APP_HASH: ${TELEGRAM_APP_HASH}
     restart: always
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
       - ./nginx-telegram.conf:/etc/nginx/nginx-telegram.conf:ro
     environment:
-      VIRTUAL_HOST: telegram.mydomain.com
-      LETSENCRYPT_HOST: telegram.mydomain.com
-      LETSENCRYPT_EMAIL: myemail@gmail.com
+      VIRTUAL_HOST: telegram.${HOST}
+      LETSENCRYPT_HOST: telegram.${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
 
   openvpn:
     container_name: openvpn
@@ -118,7 +118,7 @@ services:
     restart: always
     volumes:
       - openvpn-data:/etc/openvpn:ro
-    command: ovpn_run --proto tcp --port-share mydomain.com 4433
+    command: ovpn_run --proto tcp --port-share $${HOST} 4433
 
   dante:
     container_name: dante
@@ -126,8 +126,8 @@ services:
       context: .
       dockerfile: Dockerfile-dante
       args:
-        DANTE_USER: myuser
-        DANTE_PASSWORD: mypassword
+        DANTE_USER: ${DANTE_USER}
+        DANTE_PASSWORD: ${DANTE_PASSWORD}
     ports:
       - 8080:1080
     restart: always
