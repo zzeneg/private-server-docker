@@ -133,3 +133,34 @@ services:
     restart: always
     volumes:
       - ./sockd.conf:/etc/sockd.conf:ro
+
+  ble-light:
+    container_name: ble-light
+    image: nginx:alpine
+    restart: always
+    volumes:
+      - ./ble-light:/www:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
+    environment:
+      VIRTUAL_HOST: blelight.${HOST}
+      LETSENCRYPT_HOST: blelight.${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
+
+  calibre:
+    container_name: calibre
+    image: technosoft2000/calibre-web
+    restart: always
+    volumes:
+      - ./calibre:/books
+    environment:
+      VIRTUAL_HOST: calibre.${HOST}
+      LETSENCRYPT_HOST: calibre.${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
+
+  smtp:
+    container_name: smtp
+    image: namshi/smtp
+    restart: always
+    environment:
+      MAILNAME: ${HOST}
