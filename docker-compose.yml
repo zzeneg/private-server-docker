@@ -1,7 +1,6 @@
 version: '3.4'
 
 volumes:
-  gyazo-data:
   openvpn-data:
   nginx-proxy-vhost:
   nginx-proxy-html:
@@ -48,34 +47,6 @@ services:
     environment:
       VIRTUAL_HOST: ${HOST}
       LETSENCRYPT_HOST: ${HOST}
-      LETSENCRYPT_EMAIL: ${EMAIL}
-
-  gyazo:
-    container_name: gyazo
-    image: nginx:alpine
-    restart: always
-    volumes:
-      - gyazo-data:/www:ro
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
-    environment:
-      VIRTUAL_HOST: gyazo.${HOST}
-      LETSENCRYPT_HOST: gyazo.${HOST}
-      LETSENCRYPT_EMAIL: ${EMAIL}
-
-  upload:
-    container_name: upload
-    build:
-      context: .
-      dockerfile: Dockerfile-upload
-    restart: always
-    volumes:
-      - gyazo-data:/data
-    environment:
-      HOST: https://gyazo.${HOST}
-      TOKEN: ${UPLOAD_TOKEN}
-      VIRTUAL_HOST: upload.${HOST}
-      LETSENCRYPT_HOST: upload.${HOST}
       LETSENCRYPT_EMAIL: ${EMAIL}
 
   telegram:
@@ -164,3 +135,17 @@ services:
     restart: always
     environment:
       MAILNAME: ${HOST}
+
+  sharex:
+    container_name: sharex
+    build:
+      context: .
+      dockerfile: Dockerfile-sharex
+    restart: always
+    volumes:
+      - ./sharex-config.json:/sharex/config.json:ro
+      - ./sharex:/sharex/server/uploads
+    environment:
+      VIRTUAL_HOST: sharex.${HOST}
+      LETSENCRYPT_HOST: sharex.${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
