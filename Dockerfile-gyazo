@@ -17,5 +17,4 @@ RUN npm i
 
 EXPOSE 80
 
-CMD pm2-runtime server.js
-
+CMD ["pm2-runtime", "start", "server.js"]

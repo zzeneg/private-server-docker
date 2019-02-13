@@ -18,6 +18,7 @@ services:
       - 4433:443
     restart: always
     volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/nginx-proxy.conf:ro
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - nginx-proxy-vhost:/etc/nginx/vhost.d
       - nginx-proxy-html:/usr/share/nginx/html
@@ -56,6 +57,7 @@ services:
     volumes:
       - gyazo-data:/www:ro
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
     environment:
       VIRTUAL_HOST: gyazo.mydomain.com
       LETSENCRYPT_HOST: gyazo.mydomain.com
@@ -81,9 +83,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-telegram
+      args:
+        HOST: telegram.mydomain.com
+        APP_ID: 11111
+        APP_HASH: 1234567890
     restart: always
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
       - ./nginx-telegram.conf:/etc/nginx/nginx-telegram.conf:ro
     environment:
       VIRTUAL_HOST: telegram.mydomain.com
