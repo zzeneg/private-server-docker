@@ -89,7 +89,7 @@ services:
     restart: always
     volumes:
       - openvpn-data:/etc/openvpn:ro
-    command: ovpn_run --proto tcp --port-share $${HOST} 4433
+    command: ovpn_run --proto tcp --port-share ${HOST_IP} 4433
 
   dante:
     container_name: dante
