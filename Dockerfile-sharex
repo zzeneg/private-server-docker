@@ -6,8 +6,9 @@ RUN apk add --no-cache git && \
 WORKDIR /sharex
 ADD https://api.github.com/repos/TannerReynolds/node-sharex-server/git/refs/heads/master /version.json
 RUN git clone https://github.com/TannerReynolds/node-sharex-server.git ./ && \
+    cd src && \
     npm i
 
 EXPOSE 80
 
-CMD ["pm2-runtime", "start", "index.js"]
+CMD ["pm2-runtime", "start", "src/index.js"]

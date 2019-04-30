@@ -143,8 +143,8 @@ services:
       dockerfile: Dockerfile-sharex
     restart: always
     volumes:
-      - ./sharex-config.json:/sharex/config.json:ro
-      - ./sharex:/sharex/server/uploads
+      - ./sharex-config.json:/sharex/src/config.json:ro
+      - ./sharex:/sharex/src/server/uploads
     environment:
       VIRTUAL_HOST: sharex.${HOST}
       LETSENCRYPT_HOST: sharex.${HOST}
