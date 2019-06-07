@@ -6,9 +6,9 @@ volumes:
   nginx-proxy-html:
   nginx-proxy-dhparam:
   nginx-proxy-certs:
+  seq-data:
 
 services:
-
   nginx-proxy:
     container_name: nginx-proxy
     image: jwilder/nginx-proxy:alpine
@@ -127,6 +127,18 @@ services:
     environment:
       VIRTUAL_HOST: calibre.${HOST}
       LETSENCRYPT_HOST: calibre.${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
+
+  seq:
+    container_name: seq
+    image: datalust/seq:latest
+    restart: always
+    volumes:
+      - seq-data:/data
+    environment:
+      ACCEPT_EULA: Y
+      VIRTUAL_HOST: seq.${HOST}
+      LETSENCRYPT_HOST: seq.${HOST}
       LETSENCRYPT_EMAIL: ${EMAIL}
 
   smtp:
