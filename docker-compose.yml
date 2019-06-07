@@ -217,3 +217,12 @@ services:
       VIRTUAL_HOST: sharex.${HOST}
       LETSENCRYPT_HOST: sharex.${HOST}
       LETSENCRYPT_EMAIL: ${EMAIL}
+
+  funbox:
+    container_name: funbox
+    build:
+      context: ./funbox
+    depends_on:
+      - gandelf
+    logging: *default-logging
+    restart: always
