@@ -9,6 +9,7 @@ RUN apk add --no-cache git
 WORKDIR /webogram
 ADD https://api.github.com/repos/zhukov/webogram/git/refs/heads/master /version.json
 RUN git clone https://github.com/zhukov/webogram.git ./ && \
+    git reset --hard ba01736e7dc9555734df93665f77746efc8cc8a2 && \
     npm i
 
 # replace web.telegram.org links with proxy
