@@ -226,3 +226,19 @@ services:
       - gandelf
     logging: *default-logging
     restart: always
+
+  duplicati:
+    container_name: duplicati
+    image: duplicati/duplicati
+    depends_on:
+      - gandelf
+    logging: *default-logging
+    volumes:
+      - ./duplicati:/data
+      - .:/source
+    restart: always
+    environment:
+      VIRTUAL_HOST: duplicati.${HOST}
+      VIRTUAL_PORT: 8200
+      LETSENCRYPT_HOST: duplicati.${HOST}
+      LETSENCRYPT_EMAIL: ${EMAIL}
