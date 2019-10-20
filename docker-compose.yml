@@ -6,7 +6,6 @@ volumes:
   nginx-proxy-html:
   nginx-proxy-dhparam:
   nginx-proxy-certs:
-  seq-data:
 
 x-logging: &default-logging
   driver: gelf
@@ -166,7 +165,7 @@ services:
     image: datalust/seq:latest
     restart: always
     volumes:
-      - seq-data:/data
+      - ./seq:/data
     environment:
       ACCEPT_EULA: Y
       VIRTUAL_HOST: seq.${HOST}
