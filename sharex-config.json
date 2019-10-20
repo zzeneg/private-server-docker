@@ -1,5 +1,7 @@
 {
-  "key": "{{SHAREX_KEY}}",
+  "key": ["{{SHAREX_KEY}}"],
+  "domain": "sharex.{{HOST}}",
+  "puploadKeyGenLength": 64,
   "public": false,
   "maxUploadSize": 50,
   "markdown": true,
