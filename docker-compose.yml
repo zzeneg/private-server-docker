@@ -209,3 +209,18 @@ services:
       - "traefik.http.routers.duplicati.tls.certresolver=do"
       - "traefik.http.routers.duplicati.middlewares=oauth"
       - "traefik.http.services.duplicati.loadbalancer.server.port=8200"
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer
+    restart: unless-stopped
+    command: --no-auth
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./portainer:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${HOST}`)"
+      - "traefik.http.routers.portainer.entrypoints=https"
+      - "traefik.http.routers.portainer.tls.certresolver=do"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
