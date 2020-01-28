@@ -2,51 +2,64 @@ version: '3.4'
 
 volumes:
   openvpn-data:
-  nginx-proxy-vhost:
-  nginx-proxy-html:
-  nginx-proxy-dhparam:
-  nginx-proxy-certs:
 
 services:
-  nginx-proxy:
-    container_name: nginx-proxy
-    image: jwilder/nginx-proxy:alpine
+  traefik:
+    container_name: traefik
+    image: traefik
     ports:
       - 80:80
-      - 4433:443
-    restart: always
+      - 443:443
+    command:
+      # Globals
+      # - "--log.level=DEBUG"
+      - "--api.dashboard=true"
+      - "--global.sendAnonymousUsage=false"
+      # Docker
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      # Entrypoints
+      - "--entrypoints.http.address=:80"
+      - "--entrypoints.https.address=:443"
+      # LetsEncrypt
+      # - "--certificatesresolvers.do.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.do.acme.dnschallenge=true"
+      - "--certificatesresolvers.do.acme.dnschallenge.provider=digitalocean"
+      - "--certificatesresolvers.do.acme.email=${EMAIL}"
+      - "--certificatesresolvers.do.acme.storage=/etc/traefik/acme.json"
     volumes:
-      - ./nginx-proxy.conf:/etc/nginx/conf.d/nginx-proxy.conf:ro
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - nginx-proxy-vhost:/etc/nginx/vhost.d
-      - nginx-proxy-html:/usr/share/nginx/html
-      - nginx-proxy-dhparam:/etc/nginx/dhparam
-      - nginx-proxy-certs:/etc/nginx/certs:ro
-
-  letsencrypt-nginx-proxy-companion:
-    container_name: letsencrypt-nginx-proxy-companion
-    image: jrcs/letsencrypt-nginx-proxy-companion:stable
-    restart: always
-    volumes:
+      - ./traefik:/etc/traefik
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - nginx-proxy-vhost:/etc/nginx/vhost.d
-      - nginx-proxy-html:/usr/share/nginx/html
-      - nginx-proxy-certs:/etc/nginx/certs
     environment:
-      NGINX_PROXY_CONTAINER: nginx-proxy
-
+      DO_AUTH_TOKEN: ${DO_API_TOKEN}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${HOST}`)"
+      - "traefik.http.routers.traefik.entrypoints=https"
+      - "traefik.http.routers.traefik.tls.certresolver=do"
+      - "traefik.http.routers.traefik.service=api@internal"
+      # Wildcard cert
+      - "traefik.http.routers.traefik.tls.domains[0].main=${HOST}"
+      - "traefik.http.routers.traefik.tls.domains[0].sans=*.${HOST}"
+      # Global http-->https
+      - "traefik.http.routers.http-catchall.entrypoints=http"
+      - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.middlewares=https-redirect"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+  
   www:
     container_name: www
     image: nginx:alpine
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./www:/www:ro
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
-    environment:
-      VIRTUAL_HOST: ${HOST}
-      LETSENCRYPT_HOST: ${HOST}
-      LETSENCRYPT_EMAIL: ${EMAIL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.www.rule=Host(`${HOST}`)"
+      - "traefik.http.routers.www.entrypoints=https"
+      - "traefik.http.routers.www.tls.certresolver=do"
 
   telegram:
     container_name: telegram
@@ -57,38 +70,44 @@ services:
         HOST: telegram.${HOST}
         APP_ID: ${TELEGRAM_APP_ID}
         APP_HASH: ${TELEGRAM_APP_HASH}
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
       - ./nginx-telegram.conf:/etc/nginx/nginx-telegram.conf:ro
-    environment:
-      VIRTUAL_HOST: telegram.${HOST}
-      LETSENCRYPT_HOST: telegram.${HOST}
-      LETSENCRYPT_EMAIL: ${EMAIL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.telegram.rule=Host(`telegram.${HOST}`)"
+      - "traefik.http.routers.telegram.entrypoints=https"
+      - "traefik.http.routers.telegram.tls.certresolver=do"
 
   openvpn:
     container_name: openvpn
-    image: kylemanna/openvpn:latest
+    image: kylemanna/openvpn
+    restart: unless-stopped
     cap_add:
       - NET_ADMIN
     ports:
       - 443:1194/udp
-    restart: always
     volumes:
       - openvpn-data:/etc/openvpn
 
   openvpn-tcp:
     container_name: openvpn-tcp
-    image: kylemanna/openvpn:latest
+    image: kylemanna/openvpn
+    restart: unless-stopped
     cap_add:
       - NET_ADMIN
-    ports:
-      - 443:1194/tcp
-    restart: always
     volumes:
       - openvpn-data:/etc/openvpn:ro
-    command: ovpn_run --proto tcp --port-share ${HOST_IP} 4433
+    command: ovpn_run --proto tcp
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.openvpn-tcp.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.openvpn-tcp.entrypoints=https"
+      - "traefik.tcp.routers.openvpn-tcp.tls=false"
+      - "traefik.tcp.routers.openvpn-tcp.service=openvpn-tcp"
+      - "traefik.tcp.services.openvpn-tcp.loadbalancer.server.port=1194"
 
   dante:
     container_name: dante
@@ -98,66 +117,72 @@ services:
       args:
         DANTE_USER: ${DANTE_USER}
         DANTE_PASSWORD: ${DANTE_PASSWORD}
+    restart: unless-stopped
     ports:
       - 8080:1080
-    restart: always
     volumes:
       - ./sockd.conf:/etc/sockd.conf:ro
 
   ble-light:
     container_name: ble-light
     image: nginx:alpine
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./ble-light:/www:ro
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
-    environment:
-      VIRTUAL_HOST: blelight.${HOST}
-      LETSENCRYPT_HOST: blelight.${HOST}
-      LETSENCRYPT_EMAIL: ${EMAIL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ble-light.rule=Host(`blelight.${HOST}`)"
+      - "traefik.http.routers.ble-light.entrypoints=https"
+      - "traefik.http.routers.ble-light.tls.certresolver=do"
 
   seq:
     container_name: seq
     image: datalust/seq:latest
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./seq:/data
     environment:
       ACCEPT_EULA: Y
-      VIRTUAL_HOST: seq.${HOST}
-      LETSENCRYPT_HOST: seq.${HOST}
-      LETSENCRYPT_EMAIL: ${EMAIL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.seq.rule=Host(`seq.${HOST}`)"
+      - "traefik.http.routers.seq.entrypoints=https"
+      - "traefik.http.routers.seq.tls.certresolver=do"
 
   sharex:
     container_name: sharex
     build:
       context: .
       dockerfile: Dockerfile-sharex
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./sharex-config.json:/sharex/src/config.json:ro
       - ./sharex:/sharex/src/server/uploads
-    environment:
-      VIRTUAL_HOST: sharex.${HOST}
-      LETSENCRYPT_HOST: sharex.${HOST}
-      LETSENCRYPT_EMAIL: ${EMAIL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sharex.rule=Host(`sharex.${HOST}`)"
+      - "traefik.http.routers.sharex.entrypoints=https"
+      - "traefik.http.routers.sharex.tls.certresolver=do"
 
   funbox:
     container_name: funbox
     build:
       context: ./funbox
-    restart: always
+    restart: unless-stopped
 
   duplicati:
     container_name: duplicati
     image: duplicati/duplicati
+    restart: unless-stopped
     volumes:
       - ./duplicati:/data
       - .:/source
-    restart: always
-    environment:
-      VIRTUAL_HOST: duplicati.${HOST}
-      VIRTUAL_PORT: 8200
-      LETSENCRYPT_HOST: duplicati.${HOST}
-      LETSENCRYPT_EMAIL: ${EMAIL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.duplicati.rule=Host(`duplicati.${HOST}`)"
+      - "traefik.http.routers.duplicati.entrypoints=https"
+      - "traefik.http.routers.duplicati.tls.certresolver=do"
+      - "traefik.http.services.duplicati.loadbalancer.server.port=8200"
+
