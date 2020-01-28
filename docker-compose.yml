@@ -37,7 +37,12 @@ services:
       - "traefik.http.routers.traefik.rule=Host(`traefik.${HOST}`)"
       - "traefik.http.routers.traefik.entrypoints=https"
       - "traefik.http.routers.traefik.tls.certresolver=do"
+      - "traefik.http.routers.traefik.middlewares=oauth"
       - "traefik.http.routers.traefik.service=api@internal"
+      #OAuth
+      - "traefik.http.middlewares.oauth.forwardauth.address=http://oauth:4181"
+      - "traefik.http.middlewares.oauth.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.oauth.forwardauth.authResponseHeaders=X-Forwarded-User"
       # Wildcard cert
       - "traefik.http.routers.traefik.tls.domains[0].main=${HOST}"
       - "traefik.http.routers.traefik.tls.domains[0].sans=*.${HOST}"
@@ -46,6 +51,24 @@ services:
       - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
       - "traefik.http.routers.http-catchall.middlewares=https-redirect"
       - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+
+  traefik-forward-auth:
+    container_name: oauth
+    image: thomseddon/traefik-forward-auth
+    environment:
+      CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      SECRET: ${OAUTH_SECRET}
+      COOKIE_DOMAIN: ${HOST}
+      AUTH_HOST: oauth.${HOST}
+      WHITELIST: ${EMAIL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.oauth.rule=Host(`oauth.${HOST}`)"
+      - "traefik.http.routers.oauth.entrypoints=https"
+      - "traefik.http.routers.oauth.tls.certresolver=do"
+      - "traefik.http.routers.oauth.middlewares=oauth"
+      - "traefik.http.services.oauth.loadbalancer.server.port=4181"
   
   www:
     container_name: www
@@ -184,5 +207,5 @@ services:
       - "traefik.http.routers.duplicati.rule=Host(`duplicati.${HOST}`)"
       - "traefik.http.routers.duplicati.entrypoints=https"
       - "traefik.http.routers.duplicati.tls.certresolver=do"
+      - "traefik.http.routers.duplicati.middlewares=oauth"
       - "traefik.http.services.duplicati.loadbalancer.server.port=8200"
-
