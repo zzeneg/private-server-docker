@@ -1,7 +1,4 @@
-version: '3.4'
-
-volumes:
-  openvpn-data:
+version: "3.4"
 
 services:
   traefik:
@@ -10,66 +7,76 @@ services:
     ports:
       - 80:80
       - 443:443
+      - 443:443/udp
+      - 500:500/udp
+      - 4500:4500/udp
     command:
       # Globals
       # - "--log.level=DEBUG"
-      - "--api.dashboard=true"
-      - "--global.sendAnonymousUsage=false"
+      - --api.dashboard=true
+      - --global.sendAnonymousUsage=false
       # Docker
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
       # Entrypoints
-      - "--entrypoints.http.address=:80"
-      - "--entrypoints.https.address=:443"
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      - --entrypoints.openvpn.address=:443/udp
+      - --entrypoints.ipsec.address=:500/udp
+      - --entrypoints.ipsec2.address=:4500/udp
       # LetsEncrypt
-      # - "--certificatesresolvers.do.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory"
-      - "--certificatesresolvers.do.acme.dnschallenge=true"
-      - "--certificatesresolvers.do.acme.dnschallenge.provider=digitalocean"
-      - "--certificatesresolvers.do.acme.email=${EMAIL}"
-      - "--certificatesresolvers.do.acme.storage=/etc/traefik/acme.json"
+      - --certificatesresolvers.do.acme.dnschallenge=true
+      - --certificatesresolvers.do.acme.dnschallenge.provider=digitalocean
+      - --certificatesresolvers.do.acme.email=${EMAIL}
+      - --certificatesresolvers.do.acme.storage=/etc/traefik/acme.json
     volumes:
       - ./traefik:/etc/traefik
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      DO_AUTH_TOKEN: ${DO_API_TOKEN}
+      - DO_AUTH_TOKEN=${DO_API_TOKEN}
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.${HOST}`)"
-      - "traefik.http.routers.traefik.entrypoints=https"
-      - "traefik.http.routers.traefik.tls.certresolver=do"
-      - "traefik.http.routers.traefik.middlewares=oauth"
-      - "traefik.http.routers.traefik.service=api@internal"
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.${HOST}`)
+      - traefik.http.routers.traefik.entrypoints=https
+      - traefik.http.routers.traefik.tls=true
+      - traefik.http.routers.traefik.middlewares=oauth
+      - traefik.http.routers.traefik.service=api@internal
       #OAuth
-      - "traefik.http.middlewares.oauth.forwardauth.address=http://oauth:4181"
-      - "traefik.http.middlewares.oauth.forwardauth.trustForwardHeader=true"
-      - "traefik.http.middlewares.oauth.forwardauth.authResponseHeaders=X-Forwarded-User"
+      - traefik.http.middlewares.oauth.forwardauth.address=http://traefik-oauth:4181
+      - traefik.http.middlewares.oauth.forwardauth.trustForwardHeader=true
+      - traefik.http.middlewares.oauth.forwardauth.authResponseHeaders=X-Forwarded-User
+      #HSTS
+      - traefik.http.middlewares.hsts.headers.stspreload=true
+      - traefik.http.middlewares.hsts.headers.stsseconds=31536000
+      - traefik.http.middlewares.hsts.headers.stsincludesubdomains=true
       # Wildcard cert
-      - "traefik.http.routers.traefik.tls.domains[0].main=${HOST}"
-      - "traefik.http.routers.traefik.tls.domains[0].sans=*.${HOST}"
+      - traefik.http.routers.traefik.tls.certresolver=do
+      - traefik.http.routers.traefik.tls.domains[0].main=${HOST}
+      - traefik.http.routers.traefik.tls.domains[0].sans=*.${HOST}
       # Global http-->https
-      - "traefik.http.routers.http-catchall.entrypoints=http"
-      - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
-      - "traefik.http.routers.http-catchall.middlewares=https-redirect"
-      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - traefik.http.routers.http-catchall.entrypoints=http
+      - traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)
+      - traefik.http.routers.http-catchall.middlewares=https-redirect
+      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
 
-  traefik-forward-auth:
-    container_name: oauth
+  traefik-oauth:
+    container_name: traefik-oauth
     image: thomseddon/traefik-forward-auth
     environment:
-      CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      SECRET: ${OAUTH_SECRET}
-      COOKIE_DOMAIN: ${HOST}
-      AUTH_HOST: oauth.${HOST}
-      WHITELIST: ${EMAIL}
+      - PROVIDERS_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - PROVIDERS_GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - SECRET=${OAUTH_SECRET}
+      - COOKIE_DOMAIN=${HOST}
+      - AUTH_HOST=oauth.${HOST}
+      - WHITELIST=${OAUTH_WHITELIST}
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.oauth.rule=Host(`oauth.${HOST}`)"
-      - "traefik.http.routers.oauth.entrypoints=https"
-      - "traefik.http.routers.oauth.tls.certresolver=do"
-      - "traefik.http.routers.oauth.middlewares=oauth"
-      - "traefik.http.services.oauth.loadbalancer.server.port=4181"
-  
+      - traefik.enable=true
+      - traefik.http.routers.oauth.rule=Host(`oauth.${HOST}`)
+      - traefik.http.routers.oauth.entrypoints=https
+      - traefik.http.routers.oauth.tls=true
+      - traefik.http.routers.oauth.middlewares=hsts,oauth
+      - traefik.http.services.oauth.loadbalancer.server.port=4181
+
   www:
     container_name: www
     image: nginx:alpine
@@ -79,26 +86,11 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.www.rule=Host(`${HOST}`)"
-      - "traefik.http.routers.www.entrypoints=https"
-      - "traefik.http.routers.www.tls.certresolver=do"
-
-  telegram:
-    container_name: telegram
-    build:
-      context: https://github.com/zzeneg/docker-web-telegram.git
-      args:
-        HOST: telegram.${HOST}
-        APP_ID: ${TELEGRAM_APP_ID}
-        APP_HASH: ${TELEGRAM_APP_HASH}
-        DISABLE_MINIFY: 1
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.telegram.rule=Host(`telegram.${HOST}`)"
-      - "traefik.http.routers.telegram.entrypoints=https"
-      - "traefik.http.routers.telegram.tls.certresolver=do"
+      - traefik.enable=true
+      - traefik.http.routers.www.rule=Host(`${HOST}`)
+      - traefik.http.routers.www.entrypoints=https
+      - traefik.http.routers.www.tls=true
+      - traefik.http.routers.www.middlewares=hsts
 
   openvpn:
     container_name: openvpn
@@ -106,10 +98,13 @@ services:
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
-    ports:
-      - 443:1194/udp
     volumes:
-      - openvpn-data:/etc/openvpn
+      - ./openvpn:/etc/openvpn
+    labels:
+      - traefik.enable=true
+      - traefik.udp.routers.openvpn.entrypoints=openvpn
+      - traefik.udp.routers.openvpn.service=openvpn
+      - traefik.udp.services.openvpn.loadbalancer.server.port=1194
 
   openvpn-tcp:
     container_name: openvpn-tcp
@@ -118,103 +113,86 @@ services:
     cap_add:
       - NET_ADMIN
     volumes:
-      - openvpn-data:/etc/openvpn:ro
+      - ./openvpn:/etc/openvpn:ro
     command: ovpn_run --proto tcp
     labels:
-      - "traefik.enable=true"
-      - "traefik.tcp.routers.openvpn-tcp.rule=HostSNI(`*`)"
-      - "traefik.tcp.routers.openvpn-tcp.entrypoints=https"
-      - "traefik.tcp.routers.openvpn-tcp.tls=false"
-      - "traefik.tcp.routers.openvpn-tcp.service=openvpn-tcp"
-      - "traefik.tcp.services.openvpn-tcp.loadbalancer.server.port=1194"
+      - traefik.enable=true
+      - traefik.tcp.routers.openvpn.rule=HostSNI(`*`)
+      - traefik.tcp.routers.openvpn.entrypoints=https
+      - traefik.tcp.routers.openvpn.service=openvpn
+      - traefik.tcp.services.openvpn.loadbalancer.server.port=1194
 
-  dante:
-    container_name: dante
-    build:
-      context: https://github.com/zzeneg/docker-dante-server.git
-      args:
-        USER: ${DANTE_USER}
-        PASSWORD: ${DANTE_PASSWORD}
+  ipsec-vpn:
+    container_name: ipsec-vpn
+    image: hwdsl2/ipsec-vpn-server
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/ppp:/dev/ppp
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.accept_redirects=0
+      - net.ipv4.conf.all.send_redirects=0
+      - net.ipv4.conf.all.rp_filter=0
+      - net.ipv4.conf.default.accept_redirects=0
+      - net.ipv4.conf.default.send_redirects=0
+      - net.ipv4.conf.default.rp_filter=0
+      - net.ipv4.conf.eth0.send_redirects=0
+      - net.ipv4.conf.eth0.rp_filter=0
+    environment:
+      - VPN_USER=${IPSEC_USER}
+      - VPN_PASSWORD=${IPSEC_PASSWORD}
+      - VPN_IPSEC_PSK=${IPSEC_PSK}
+    labels:
+      - traefik.enable=true
+      - traefik.udp.routers.ipsec.entrypoints=ipsec
+      - traefik.udp.routers.ipsec.service=ipsec
+      - traefik.udp.services.ipsec.loadbalancer.server.port=500
+      - traefik.udp.routers.ipsec2.entrypoints=ipsec2
+      - traefik.udp.routers.ipsec2.service=ipsec2
+      - traefik.udp.services.ipsec2.loadbalancer.server.port=4500
+
+  traefik-export-cert:
+    container_name: traefik-export-cert
+    image: zzeneg/traefik-export-cert
+    restart: unless-stopped
+    environment:
+      - RESOLVER=do
+      - DOMAIN=${HOST}
+    volumes:
+      - ./traefik/acme.json:/acme.json:ro
+      - ./traefik-export-cert:/export
+
+  adguard:
+    container_name: adguard
+    image: adguard/adguardhome
     restart: unless-stopped
     ports:
-      - 8080:1080
-
-  ble-light:
-    container_name: ble-light
-    image: nginx:alpine
-    restart: unless-stopped
+      - 853:853
     volumes:
-      - ./ble-light:/www:ro
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx-www.conf:/etc/nginx/nginx-www.conf:ro
+      - ./adguard/work:/opt/adguardhome/work
+      - ./adguard/conf:/opt/adguardhome/conf
+      - ./traefik-export-cert:/cert:ro
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.ble-light.rule=Host(`blelight.${HOST}`)"
-      - "traefik.http.routers.ble-light.entrypoints=https"
-      - "traefik.http.routers.ble-light.tls.certresolver=do"
-
-  seq:
-    container_name: seq
-    image: datalust/seq:latest
-    restart: unless-stopped
-    volumes:
-      - ./seq:/data
-    environment:
-      ACCEPT_EULA: Y
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.seq.rule=Host(`seq.${HOST}`)"
-      - "traefik.http.routers.seq.entrypoints=https"
-      - "traefik.http.routers.seq.tls.certresolver=do"
-
-  sharex:
-    container_name: sharex
-    image: zzeneg/sharex-server
-    restart: unless-stopped
-    volumes:
-      - ./sharex:/sharex/src/server/uploads
-    environment:
-      KEY: ${SHAREX_KEY}
-      DOMAIN: sharex.${HOST}
-      ADMIN_KEY: ${SHAREX_ADMINKEY}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.sharex.rule=Host(`sharex.${HOST}`)"
-      - "traefik.http.routers.sharex.entrypoints=https"
-      - "traefik.http.routers.sharex.tls.certresolver=do"
-
-  funbox:
-    container_name: funbox
-    build:
-      context: ./funbox
-    restart: unless-stopped
-
-  duplicati:
-    container_name: duplicati
-    image: duplicati/duplicati
-    restart: unless-stopped
-    volumes:
-      - ./duplicati:/data
-      - .:/source
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.duplicati.rule=Host(`duplicati.${HOST}`)"
-      - "traefik.http.routers.duplicati.entrypoints=https"
-      - "traefik.http.routers.duplicati.tls.certresolver=do"
-      - "traefik.http.routers.duplicati.middlewares=oauth"
-      - "traefik.http.services.duplicati.loadbalancer.server.port=8200"
+      - traefik.enable=true
+      - traefik.http.routers.adguard.rule=Host(`adguard.${HOST}`)
+      - traefik.http.routers.adguard.entrypoints=https
+      - traefik.http.routers.adguard.tls=true
+      - traefik.http.routers.adguard.middlewares=oauth
+      - traefik.http.services.adguard.loadbalancer.server.port=80
 
   portainer:
     container_name: portainer
-    image: portainer/portainer
+    image: portainer/portainer-ce:alpine
     restart: unless-stopped
-    command: --no-auth
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./portainer:/data
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`portainer.${HOST}`)"
-      - "traefik.http.routers.portainer.entrypoints=https"
-      - "traefik.http.routers.portainer.tls.certresolver=do"
-      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - traefik.enable=true
+      - traefik.http.routers.portainer.rule=Host(`portainer.${HOST}`)
+      - traefik.http.routers.portainer.entrypoints=https
+      - traefik.http.routers.portainer.tls=true
+      - traefik.http.routers.portainer.middlewares=oauth
+      - traefik.http.services.portainer.loadbalancer.server.port=9000
